@@ -6,8 +6,11 @@ import codecs
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-clr.AddReference("MEMELib_Academic")
-from MEMELib_Academic import MEMELib
+try:
+    clr.AddReference("MEMELib_Academic")
+    from MEMELib_Academic import MEMELib
+except:
+    raise ImportError('Can\'t import MEMELib_Academic.  Copy MEMELib_Academic.dll to any directory in your PATH environment variable or {}.'.format(os.path.abspath(os.path.dirname(__file__))))
 
 if sys.platform == 'win32':
     timefunc = time.clock
