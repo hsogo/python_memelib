@@ -4,6 +4,9 @@ import sys
 import os
 import codecs
 
+import numpy as np
+import re
+
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 try:
@@ -37,6 +40,10 @@ else:
 # fullData.EogR
 # fullData.EogH
 # fullData.EogV
+
+# #######################################
+# Recording
+# #######################################
 
 class memelib:
     com = ''
@@ -134,6 +141,7 @@ class memelib:
     def stop_recording(self):
         self._memelib.stopDataReport()
         if self.datafile is not None:
+            self.datafile.write('#start_rec\n')
             self.datafile.write('time,count,AccX,AccY,AccZ,GyrX,GyrY,GyrZ,EogL,EogR,EogH,EogV\n')
             for data in self.data:
                 self.datafile.write('{:.1f},{:d},{:d},{:d},{:d},{:d},{:d},{:d},'
@@ -142,6 +150,7 @@ class memelib:
             for data in self.eventdata:
                 self.datafile.write('{:.1f},{}\n'.format(*data))
                         
+            self.datafile.write('#stop_rec\n')
             self.datafile.flush()
         self.isRecording = False
     
@@ -155,10 +164,136 @@ class memelib:
             self.datafile.close()
         
         self.datafile = codecs.open(filename, 'w', 'utf-8')
+        self.datafile.write('#memelib_data\n')
     
     def close_datafile(self):
         if self.datafile != None:
             self.datafile.close()
         
         self.datafile = None
+
+# #######################################
+# Data
+# #######################################
+
+
+def convert_datafile(file):
+    
+    all_data = []
+    
+    with open(file, 'r') as fp:
+        if fp.readline().rstrip() != '#memelib_data':
+            return all_data
+            
+        for line in fp:
+            if line[:10] == '#start_rec':
+                data = []
+                msg = []
+                in_data = False
+                in_msg = False
+            elif line[:9] == '#stop_rec':
+                all_data.append(memedata(data, msg))
+            elif line[:10] == 'time,count':
+                in_data = True
+                in_msg = False
+            elif line[:10] == 'time,event':
+                in_data = False
+                in_msg = True
+            else:
+                if in_data:
+                    d = list(map(float, line.rstrip().split(',')))
+                    data.append(d)
+                elif in_msg:
+                    d = line.rstrip().split(',')
+                    d[0] = float(d[0])
+                    msg.append(d)
+    
+    
+    return all_data
+
+
+class message(object):
+    time = 0
+    text = ''
+    
+    def __init__(self, time, text):
+        self.time = time
+        self.text = text
+    
+    """
+    def __repr__(self):
+        msg = '<{}.{}, '.format(self.__class__.__module__,
+                                self.__class__.__name__)
+        
+        if len(self.text) > 16:
+            text = self.text[:13]+'...'
+        else:
+            text = self.text
+        
+        if sys.version_info[0] == 2:
+            msg += '{:.3f}s, {}>'.format(self.time/1000.0, text.encode(locale.getpreferredencoding()))
+        else:
+            msg += '{:.3f}s, {}>'.format(self.time/1000.0, text)
+        
+        return msg
+    """
+
+
+
+class memedata(object):
+    T = []
+    E = []
+    H = []
+    msg = []
+    
+    def __init__(self, data=None, msg=None, reset_timestamp=True):
+
+        if isinstance(data, np.ndarray):
+            data_array = data
+        else:
+            data_array = np.array(data)
+        
+        
+        self.T = data_array[:,0]
+        start_time = self.T[0]
+        self.H = data_array[:,2:8]
+        self.E = data_array[:,10:12]
+        
+        if reset_timestamp:
+            self.T -= start_time
+            for m in msg:
+                self.msg.append(message(m[0]-start_time, m[1]))
+        else:
+            for m in msg:
+                self.msg.append(message(m[0], m[1]))
+        
+    def extract(self, period):
+        if len(period) != 2:
+            raise ValueError('Period must be (start, end).')
+        
+        if period[0] is None:
+            si = 0
+        else:
+            si = np.where(self.T >= period[0])[0][0]
+        
+        if period[1] is None:
+            ei = -1
+        else:
+            ei = np.where(self.T <= period[1])[0][-1]
+            
+        return [self.T[si:ei], self.H[si:ei], self.E[si:ei]]
+    
+    def find_message_index(self, text, regexp=False):
+        res = []
+        
+        if regexp:
+            p = re.compile(text)
+            for idx, msg in enumerate(self.msg):
+                if p.search(msg.text):
+                    res.append(idx)
+        else:
+            for idx, msg in enumerate(self.msg):
+                if text in msg.text:
+                    res.append(idx)
+        return res
 
