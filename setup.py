@@ -7,6 +7,5 @@ setup(
 )
 
 package_data = {
-    'memelib': ['MEMELib_Academic.dll],
-
+    'memelib': ['MEMELib_Academic.dll'],
 }
