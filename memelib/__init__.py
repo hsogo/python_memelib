@@ -135,12 +135,12 @@ class memelib:
         self.data = []
         self.eventdata = []
         self._memelib.startDataReport()
-        self.start_recording_time = timefunc()
+        self.recording_start_time = timefunc()
         self.isRecording = True
     
-    def stop_recording(self):
+    def stop_recording(self, write=True):
         self._memelib.stopDataReport()
-        if self.datafile is not None:
+        if self.datafile is not None and write:
             self.datafile.write('#start_rec\n')
             self.datafile.write('time,count,AccX,AccY,AccZ,GyrX,GyrY,GyrZ,EogL,EogR,EogH,EogV\n')
             for data in self.data:
