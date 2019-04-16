@@ -258,6 +258,7 @@ class memedata(object):
         start_time = self.T[0]
         self.H = data_array[:,2:8]
         self.E = data_array[:,10:12]
+        self.msg = []
         
         if reset_timestamp:
             self.T -= start_time
