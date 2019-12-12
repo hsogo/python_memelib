@@ -4,8 +4,6 @@ setup(
     name = "memelib",
     version = "0.0.1",
     packages=['memelib'],
+    install_requires=['numpy', 'pythonnet']
 )
 
-package_data = {
-    'memelib': ['MEMELib_Academic.dll'],
-}
