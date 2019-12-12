@@ -48,8 +48,8 @@ else:
 class memelib:
     com = ''
     device_address = ''
-    callback_scan_ok = False
-    callback_connect_ok = False
+    callback_scan_finished = False
+    callback_connect_finished = False
     data = []
     eventdata = []
     isConnected = False
@@ -71,14 +71,14 @@ class memelib:
     def callback_found(self, sender, result, address):
         if result == MEMELib.MEMEStatus.MEMELIB_OK:
             self.device_address = address
-        self.callback_scan_ok = True
+        self.callback_scan_finished = True
     
     def callback_connected(self, sender, result):
         if result == MEMELib.MEMEStatus.MEMELIB_OK:
             self.isConnected = True
         elif result == MEMELib.MEMEStatus.MEMELIB_TIMEOUT:
             self.isConnected = False
-        self.callback_connect_ok = True
+        self.callback_connect_finished = True
 
     def callback_received(self, sender, full_data):
         t = 1000*(timefunc() - self.recording_start_time)
@@ -101,11 +101,11 @@ class memelib:
             return False
 
     def scan_device(self, timeout=5, wait=5):
-        self.callback_scan_ok = False
+        self.callback_scan_finished = False
         self.device_address = ''  #todo: disconnect device if connected
         self._memelib.startScanningPeripherals()
         start = time.clock()
-        while not self.callback_scan_ok and time.clock()-start < timeout:
+        while not self.callback_scan_finished and time.clock()-start < timeout:
             time.sleep(0.5)
         self._memelib.stopScanningPeripherals()
         if self.device_address != '':
@@ -114,21 +114,25 @@ class memelib:
         return False
     
     def connect_device(self, timeout=10):
-        self.callback_connect_ok = False
+        self.callback_connect_finished = False
         self._memelib.connectPeripheral(self.device_address)
         start = time.clock()
-        while not self.callback_connect_ok:
+        while not self.callback_connect_finished:
             time.sleep(0.5)
             if time.clock()-start > timeout:
                 return False
         return self.isConnected
     
     def disconnect_device(self):
+        time.sleep(0.5)
         self._memelib.disconnectPeripheral()
+        time.sleep(0.5)
         self.isConnected = False
     
     def close_port(self):
+        time.sleep(0.5)
         self._memelib.DisconnectComPort()
+        time.sleep(0.5)
         self.isOpened = False
     
     def start_recording(self):
@@ -268,20 +272,24 @@ class memedata(object):
             for m in msg:
                 self.msg.append(message(m[0], m[1]))
         
-    def extract(self, period):
+    def extract(self, period, index=False):
         if len(period) != 2:
             raise ValueError('Period must be (start, end).')
         
-        if period[0] is None:
-            si = 0
-        else:
-            si = np.where(self.T >= period[0])[0][0]
-        
-        if period[1] is None:
-            ei = -1
-        else:
-            ei = np.where(self.T <= period[1])[0][-1]
+        if not index:
+            if period[0] is None:
+                si = 0
+            else:
+                si = np.where(self.T >= period[0])[0][0]
             
+            if period[1] is None:
+                ei = -1
+            else:
+                ei = np.where(self.T <= period[1])[0][-1]
+        else:
+            si = period[0]
+            ei = period[1]
+        
         return [self.T[si:ei], self.H[si:ei], self.E[si:ei]]
     
     def find_message_index(self, text, regexp=False):
@@ -298,3 +306,9 @@ class memedata(object):
                     res.append(idx)
         return res
 
+    def find_nearest_timestamp(self, t, index=False):
+        if index:
+            return (np.abs(self.T-t)).argmin()
+        else:
+            idx = (np.abs(array-value)).argmin()
+            return array[idx]
